@@ -1,0 +1,4 @@
+subj,dataset_name,metric_name,performance
+deit_insup,cue-conflict,accuracy (top-1),0.25
+deit_insup,imagenet_validation,accuracy (top-1),0.79744
+deit_insup,imagenet_validation,accuracy (top-5),0.9493

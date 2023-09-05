@@ -1,14 +1,32 @@
 #!/usr/bin/env python3
 import torch
+from torch import nn
 
 from ..registry import register_model
 from ..wrappers.pytorch import PytorchModel, PyContrastPytorchModel, ClipPytorchModel, \
-    ViTPytorchModel, EfficientNetPytorchModel, SwagPytorchModel
+    ViTPytorchModel, EfficientNetPytorchModel, SwagPytorchModel, DiNoViTPytorchModel, \
+        DeiTPytorchModel, DiNoResNetPytorchModel, MoCoResNetPytorchModel, MoCoViTPytorchModel, \
+        DiNov2ViTPytorchModel
 
 _PYTORCH_IMAGE_MODELS = "rwightman/pytorch-image-models"
 
 _EFFICIENTNET_MODELS = "rwightman/gen-efficientnet-pytorch"
 
+class LinearClassifier(nn.Module):
+    """Linear layer to train on top of frozen features"""
+    def __init__(self, dim, num_labels=1000):
+        super(LinearClassifier, self).__init__()
+        self.num_labels = num_labels
+        self.linear = nn.Linear(dim, num_labels)
+        self.linear.weight.data.normal_(mean=0.0, std=0.01)
+        self.linear.bias.data.zero_()
+
+    def forward(self, x):
+        # flatten
+        x = x.view(x.size(0), -1)
+
+        # linear layer
+        return self.linear(x)
 
 def model_pytorch(model_name, *args):
     import torchvision.models as zoomodels
@@ -16,6 +34,196 @@ def model_pytorch(model_name, *args):
     model = torch.nn.DataParallel(model)
     return PytorchModel(model, model_name, *args)
 
+
+models = ["vits_dino", "r3m", "mvp", "vip"]
+
+@register_model("pytorch")
+def resnet50_sup(model_name, *args):
+    # redundancy, just to double check
+    import torchvision.models as models
+    model = models.resnet50(pretrained=True, progress=False)
+    return PytorchModel(model, model_name, *args)
+
+@register_model("pytorch")
+def vits_sup(model_name, *args):
+    import vit_models
+    model = vit_models.dino_small(patch_size=16, pretrained=False)
+    state_dict = torch.hub.load_state_dict_from_url(url="https://dl.fbaipublicfiles.com/deit/deit_small_patch16_224-cd65a155.pth")
+    msg = model.load_state_dict(state_dict["model"], strict=False)
+    print(msg)
+    return DeiTPytorchModel(model, model_name, *args)
+
+@register_model("pytorch")
+def vits_sinsup(model_name, *args):
+    import vit_models
+    model = vit_models.dino_small(patch_size=16, pretrained=False)
+    state_dict = torch.hub.load_state_dict_from_url(url="https://github.com/Muzammal-Naseer/Intriguing-Properties-of-Vision-Transformers/releases/download/v0/deit_s_sin.pth")
+    msg = model.load_state_dict(state_dict["model"], strict=False)
+    print(msg)
+    return DeiTPytorchModel(model, model_name, *args)
+
+@register_model("pytorch")
+def resnet50_dino(model_name, *args):
+    model = torch.hub.load('facebookresearch/dino:main', 'dino_resnet50')
+    linear = LinearClassifier(2048, num_labels=1000)
+    linear_state_dict = torch.hub.load_state_dict_from_url(
+        url="https://dl.fbaipublicfiles.com/dino/dino_resnet50_pretrain/dino_resnet50_linearweights.pth",
+        map_location="cpu",
+    )['state_dict']
+    linear_state_dict['linear.weight'] = linear_state_dict.pop('module.linear.weight')
+    linear_state_dict['linear.bias'] = linear_state_dict.pop('module.linear.bias')
+    linear.load_state_dict(linear_state_dict, strict=True)
+    return DiNoResNetPytorchModel(model, model_name, linear, *args)
+
+@register_model("pytorch")
+def vits_dino(model_name, *args):
+    model = torch.hub.load('facebookresearch/dino:main', 'dino_vits16')
+    linear = LinearClassifier(model.embed_dim*4, num_labels=1000)
+    linear_state_dict = torch.hub.load_state_dict_from_url(
+        url="https://dl.fbaipublicfiles.com/dino/dino_deitsmall16_pretrain/dino_deitsmall16_linearweights.pth",
+        map_location="cpu",
+    )['state_dict']
+    linear_state_dict['linear.weight'] = linear_state_dict.pop('module.linear.weight')
+    linear_state_dict['linear.bias'] = linear_state_dict.pop('module.linear.bias')
+    msg = linear.load_state_dict(linear_state_dict, strict=True)
+    print(msg)
+    return DiNoViTPytorchModel(model, model_name, linear, *args)
+
+@register_model("pytorch")
+def vits_dinov2(model_name, *args):
+    model = torch.hub.load('facebookresearch/dinov2', 'dinov2_vits14')
+    out_dim = model.embed_dim*2
+    linear = LinearClassifier(out_dim, num_labels=1000)
+    linear_state_dict = torch.hub.load_state_dict_from_url(
+        url="https://dl.fbaipublicfiles.com/dinov2/dinov2_vits14/dinov2_vits14_linear_head.pth",
+        map_location="cpu",
+    )
+    linear_state_dict['linear.weight'] = linear_state_dict.pop('weight')
+    linear_state_dict['linear.bias'] = linear_state_dict.pop('bias')
+    msg = linear.load_state_dict(linear_state_dict, strict=True)
+    print(msg)
+    return DiNov2ViTPytorchModel(model, model_name, linear, *args)
+
+@register_model("pytorch")
+def vitb_dino(model_name, *args):
+    model = torch.hub.load('facebookresearch/dino:main', )
+    linear = LinearClassifier(model.embed_dim*4, num_labels=1000)
+    linear_state_dict = torch.hub.load_state_dict_from_url(
+        url="https://dl.fbaipublicfiles.com/dino/dino_deitsmall16_pretrain/dino_deitsmall16_linearweights.pth",
+        map_location="cpu",
+    )['state_dict']
+    linear_state_dict['linear.weight'] = linear_state_dict.pop('module.linear.weight')
+    linear_state_dict['linear.bias'] = linear_state_dict.pop('module.linear.bias')
+    msg = linear.load_state_dict(linear_state_dict, strict=True)
+    print(msg)
+    return DiNoViTPytorchModel(model, model_name, linear, *args)
+
+@register_model("pytorch")
+def resnet50_moco(model_name, *args):
+    import torchvision
+    model = torchvision.models.resnet50(pretrained=False, progress=False)
+    checkpoint = torch.utils.model_zoo.load_url("https://dl.fbaipublicfiles.com/moco-v3/r-50-300ep/linear-300ep.pth.tar")
+    state_dict = checkpoint["state_dict"]
+    for k in list(state_dict.keys()):
+        if k.startswith('module'):
+            # remove prefix
+            state_dict[k[len("module."):]] = state_dict[k]
+        # delete renamed or unused k
+        del state_dict[k]
+    model.load_state_dict(state_dict, strict=False)
+    model = model.eval()
+    return MoCoResNetPytorchModel(model, model_name, *args)
+
+@register_model("pytorch")
+def vits_moco(model_name, *args):
+    import vits
+    model = vits.vit_small()
+    checkpoint = torch.utils.model_zoo.load_url("https://dl.fbaipublicfiles.com/moco-v3/vit-s-300ep/linear-vit-s-300ep.pth.tar")
+    state_dict = checkpoint["state_dict"]
+    for k in list(state_dict.keys()):
+        if k.startswith('module'):
+            # remove prefix
+            state_dict[k[len("module."):]] = state_dict[k]
+        # delete renamed or unused k
+        del state_dict[k]
+    msg = model.load_state_dict(state_dict, strict=False)
+    print(msg)
+    model = model.eval()
+    return MoCoViTPytorchModel(model, model_name)
+
+@register_model("pytorch")
+def vitb_moco(model_name, *args):
+    import vits
+    model = vits.vit_base()
+    checkpoint = torch.utils.model_zoo.load_url("https://dl.fbaipublicfiles.com/moco-v3/vit-b-300ep/linear-vit-b-300ep.pth.tar")
+    state_dict = checkpoint["state_dict"]
+    for k in list(state_dict.keys()):
+        if k.startswith('module'):
+            # remove prefix
+            state_dict[k[len("module."):]] = state_dict[k]
+        # delete renamed or unused k
+        del state_dict[k]
+    msg = model.load_state_dict(state_dict, strict=False)
+    print(msg)
+    model = model.eval()
+    return MoCoViTPytorchModel(model, model_name) # TODO: change?
+
+###############
+
+
+# @register_model("pytorch")
+# def deit_insup(model_name, *args):
+#     import vit_models
+#     model = vit_models.dino_small(patch_size=16, pretrained=False)
+#     state_dict = torch.hub.load_state_dict_from_url(url="https://dl.fbaipublicfiles.com/deit/deit_small_patch16_224-cd65a155.pth")
+#     msg = model.load_state_dict(state_dict["model"], strict=False)
+#     print(msg)
+#     return DeiTPytorchModel(model, model_name, *args)
+
+
+@register_model("pytorch")
+def vit_dino(model_name, *args):
+    # import pdb; pdb.set_trace()
+    # import utils
+    # import vision_transformer as vits
+    # from vision_transformer import DINOHead
+
+    # teacher = vits.__dict__['vit_small'](patch_size=16)
+    # teacher = utils.MultiCropWrapper(
+    #     teacher,
+    #     DINOHead(teacher.embed_dim, 65536, False),
+    # )
+    # state_dict = torch.hub.load_state_dict_from_url(
+    #     url="https://dl.fbaipublicfiles.com/dino/dino_deitsmall16_pretrain/dino_deitsmall16_pretrain_full_checkpoint.pth",
+    #     map_location="cpu",
+    # )['teacher']
+    # teacher.load_state_dict(state_dict, strict=True)
+
+    model = torch.hub.load('facebookresearch/dino:main', 'dino_vits16')
+    linear = LinearClassifier(model.embed_dim*4, num_labels=1000)
+    linear_state_dict = torch.hub.load_state_dict_from_url(
+        url="https://dl.fbaipublicfiles.com/dino/dino_deitsmall16_pretrain/dino_deitsmall16_linearweights.pth",
+        map_location="cpu",
+    )['state_dict']
+    linear_state_dict['linear.weight'] = linear_state_dict.pop('module.linear.weight')
+    linear_state_dict['linear.bias'] = linear_state_dict.pop('module.linear.bias')
+    linear.load_state_dict(linear_state_dict, strict=True)
+    return DiNoViTPytorchModel(model, model_name, linear, *args)
+
+
+@register_model("pytorch")
+def deit_sinsup(model_name, *args):
+    import vit_models
+    model = vit_models.dino_small(patch_size=16, pretrained=False)
+    state_dict = torch.hub.load_state_dict_from_url(url="https://github.com/Muzammal-Naseer/Intriguing-Properties-of-Vision-Transformers/releases/download/v0/deit_s_sin.pth")
+    # state_dict = torch.hub.load_state_dict_from_url(url="https://dl.fbaipublicfiles.com/dino/dino_deitsmall16_pretrain/dino_deitsmall16_pretrain_full_checkpoint.pth")
+    # import pdb; pdb.set_trace()
+    # state_dict = {k.replace("module.", ""):v for k, v in state_dict.items()}
+    # state_dict = {k.replace("backbone.", ""):v for k, v in state_dict.items()}
+    # msg = model.load_state_dict(state_dict["model"], strict=False)
+    msg = model.load_state_dict(state_dict["model"], strict=False)
+    print(msg)
+    return DeiTPytorchModel(model, model_name, *args)
 
 @register_model("pytorch")
 def resnet50_trained_on_SIN(model_name, *args):
@@ -485,7 +693,7 @@ def selecsls60b(model_name, *args):
 @register_model("pytorch")
 def clip(model_name, *args):
     import clip
-    model, _ = clip.load("ViT-B/32")
+    model, _ = clip.load("ViT-B/16")
     return ClipPytorchModel(model, model_name, *args)
 
 

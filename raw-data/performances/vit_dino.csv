@@ -1,0 +1,4 @@
+subj,dataset_name,metric_name,performance
+vit_dino,cue-conflict,accuracy (top-1),0.24296875
+vit_dino,imagenet_validation,accuracy (top-1),0.7693
+vit_dino,imagenet_validation,accuracy (top-5),0.93036

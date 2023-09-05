@@ -1,0 +1,4 @@
+subj,dataset_name,metric_name,performance
+resnet50_dino,cue-conflict,accuracy (top-1),0.14609375
+resnet50_dino,imagenet_validation,accuracy (top-1),0.7533
+resnet50_dino,imagenet_validation,accuracy (top-5),0.92594

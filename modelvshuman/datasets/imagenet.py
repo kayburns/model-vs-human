@@ -24,7 +24,7 @@ class ImageNetParams:
 @register_dataset(name='imagenet_validation')
 def imagenet_validation(*args, **kwargs):
     params = ImageNetParams(image_size=256,
-                            path=pjoin(c.DATASET_DIR, "imagenet_validation"))
+                            path=pjoin("/nlp/scr/nlp/imagenet/", "val"))
     return Dataset(name="imagenet_validation",
                    params=params,
                    loader=PytorchLoader,

@@ -39,7 +39,7 @@ def try_download_dataset_from_github(dataset_name):
 
 
 def load_dataset(name, *args, **kwargs):
-    default_kwargs = {"batch_size": 16, "num_workers": 4}
+    default_kwargs = {"batch_size": 16, "num_workers": 2}
     kwargs = {**default_kwargs, **kwargs}
     logger.info(f"Loading dataset {name}")
     supported_datasets = dataset_module.list_datasets()
@@ -47,7 +47,7 @@ def load_dataset(name, *args, **kwargs):
     if module_name is None:
         raise NameError(f"Dataset {name} is not supported, "
                         f"please select from {list(supported_datasets.keys())}")
-    elif os.path.exists(join(c.DATASET_DIR, name)):
+    elif os.path.exists(join(c.DATASET_DIR, name)) or name == "imagenet_validation":
         return eval(f"dataset_module.{module_name}")(*args, **kwargs)
     elif try_download_dataset_from_github(name):
         return eval(f"dataset_module.{module_name}")(*args, **kwargs)

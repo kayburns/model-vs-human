@@ -26,19 +26,36 @@ def plotting_definition_template(df):
     """
 
     decision_makers = []
-
-    decision_makers.append(DecisionMaker(name_pattern="resnet50",
+    decision_makers.append(DecisionMaker(name_pattern="resnet50_sup",
                            color=rgb(65, 90, 140), marker="o", df=df,
                            plotting_name="ResNet-50"))
-    decision_makers.append(DecisionMaker(name_pattern="bagnet33",
+    decision_makers.append(DecisionMaker(name_pattern="vits_sup",
                            color=rgb(110, 110, 110), marker="o", df=df,
-                           plotting_name="BagNet-33"))
-    decision_makers.append(DecisionMaker(name_pattern="simclr_resnet50x1",
+                            plotting_name="ViT-Sup"))
+    decision_makers.append(DecisionMaker(name_pattern="vits_sinsup",
                            color=rgb(210, 150, 0), marker="o", df=df,
-                           plotting_name="SimCLR-x1"))
-    decision_makers.append(DecisionMaker(name_pattern="subject-*",
-                           color=rgb(165, 30, 55), marker="D", df=df,
-                           plotting_name="humans"))
+                            plotting_name="ViT-SINSup"))
+    decision_makers.append(DecisionMaker(name_pattern="resnet50_dino",
+                            color=rgb(165, 30, 55), marker="D", df=df,
+                            plotting_name="ResNet-50-DiNo"))
+    decision_makers.append(DecisionMaker(name_pattern="vits_dino",
+                            color=rgb(165, 30, 55), marker="D", df=df,
+                            plotting_name="ViT-DiNo"))
+    decision_makers.append(DecisionMaker(name_pattern="resnet50_moco",
+                            color=rgb(165, 30, 55), marker="D", df=df,
+                            plotting_name="ResNet-50-MoCo"))
+    decision_makers.append(DecisionMaker(name_pattern="vits_moco",
+                            color=rgb(165, 30, 55), marker="D", df=df,
+                            plotting_name="ViT-MoCo"))
+    decision_makers.append(DecisionMaker(name_pattern="r3m",
+                            color=rgb(165, 30, 55), marker="D", df=df,
+                            plotting_name="R3M"))
+    decision_makers.append(DecisionMaker(name_pattern="mvp",
+                            color=rgb(165, 30, 55), marker="D", df=df,
+                            plotting_name="MVP"))
+    decision_makers.append(DecisionMaker(name_pattern="vip",
+                            color=rgb(165, 30, 55), marker="D", df=df,
+                            plotting_name="VIP"))
     return decision_makers
 
 

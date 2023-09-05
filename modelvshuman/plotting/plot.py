@@ -433,6 +433,7 @@ def plot_shape_bias_matrixplot(datasets,
 
     log(plot_type="shape-bias-matrixplot", dataset_name=ds.name)
 
+    import pdb; pdb.set_trace()
     df = ph.get_experimental_data(ds)
 
     fontsize = 25
@@ -581,15 +582,16 @@ def plot_shape_bias_boxplot(datasets,
             label_colors.append(dmaker.color)
         labels.append(dmaker.plotting_name)
 
-    decision_maker_to_shape_bias_dict["humans"] = df_results_humans.humans.tolist()
+    # decision_maker_to_shape_bias_dict["humans"] = df_results_humans.humans.tolist()
     df_results = pd.DataFrame(decision_maker_to_shape_bias_dict)
+    import pdb; pdb.set_trace()
     boxplot = ax.boxplot(df_results,
                          vert=True,  # vertical box alignment
                          patch_artist=True,  # fill with color
-                         labels=labels,
+                         labels=labels[:3],
                          showfliers=False
                          )
-    for element, x_axis, color, label_color in zip(boxplot["boxes"], ax.xaxis.get_ticklabels(), colors, label_colors):
+    for element, x_axis, color, label_color in zip(boxplot["boxes"], ax.xaxis.get_ticklabels(), colors[:3], label_colors[:3]):
         element.set(color=color)
         x_axis.set_color(label_color)
     plt.subplots_adjust(bottom=0.55)

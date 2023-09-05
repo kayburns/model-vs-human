@@ -105,6 +105,208 @@ class ViTPytorchModel(PytorchModel):
             Normalize(0.5, 0.5),
         ])
 
+class DeiTPytorchModel(PytorchModel):
+
+    def __init__(self, model, model_name, img_size=(224, 224), *args):
+        self.img_size = img_size
+        super(DeiTPytorchModel, self).__init__(model, model_name, args)
+
+    def forward_batch(self, images):
+        assert type(images) is torch.Tensor
+        self.model.eval()
+
+        images = undo_default_preprocessing(images)
+        images = [self.preprocess()(ToPILImage()(image)) for image in images]
+        images = torch.Tensor(np.stack(images, axis=0)).to(device())
+
+        logits = self.model(images)
+        return self.to_numpy(logits)
+
+    def preprocess(self):
+        # custom preprocessing from:
+        # https://github.com/lukemelas/PyTorch-Pretrained-ViT
+
+        return Compose([Resize((224, 224)),
+                        ToTensor(), # ToTensor() divides by 255
+                        Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
+
+class DiNoViTPytorchModel(PytorchModel):
+
+    # def __init__(self, model, model_name, img_size=(224, 224), *args):
+    #     self.img_size = img_size
+    #     super(DiNoViTPytorchModel, self).__init__(model, model_name, args)
+
+    # def forward_batch(self, images):
+    #     assert type(images) is torch.Tensor
+    #     self.model.eval()
+
+    #     images = undo_default_preprocessing(images)
+    #     images = [self.preprocess()(ToPILImage()(image)) for image in images]
+    #     images = torch.Tensor(np.stack(images, axis=0)).to(device())
+
+    #     logits = self.model(images)
+    #     import pdb; pdb.set_trace()
+    #     return self.to_numpy(logits)
+
+    def __init__(self, model, model_name, linear, img_size=(224, 224), *args):
+        self.img_size = img_size
+        super(DiNoViTPytorchModel, self).__init__(model, model_name, args)
+        self.linear_classifier = linear
+        self.linear_classifier.to(device())
+
+    def forward_batch(self, images):
+        assert type(images) is torch.Tensor
+        self.model.eval()
+        self.linear_classifier.eval()
+
+        images = undo_default_preprocessing(images)
+        images = [self.preprocess()(ToPILImage()(image)) for image in images]
+        images = torch.Tensor(np.stack(images, axis=0)).to(device())
+
+        intermediate_output = self.model.get_intermediate_layers(images, 4)
+        output = torch.cat([x[:, 0] for x in intermediate_output], dim=-1)
+        logits = self.linear_classifier(output)
+        return self.softmax(self.to_numpy(logits))
+
+    def preprocess(self):
+        # return Compose([CenterCrop(224),
+        #                 ToTensor(),
+        #                 Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        # ])
+        return Compose([ToTensor(),
+                        Resize(224),
+                        Normalize((0.485, 0.456, 0.406),
+                                  (0.229, 0.224, 0.225))])
+
+    # def preprocess(self):
+    #     # return Compose([CenterCrop(224),
+    #     #                 ToTensor(),
+    #     #                 Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+    #     # ])
+    #     return Compose([
+    #         Resize(256, interpolation=3),
+    #         CenterCrop(224),
+    #         ToTensor(),
+    #         Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+    #     ])
+
+
+class DiNov2ViTPytorchModel(PytorchModel):
+
+    def __init__(self, model, model_name, linear, img_size=(224, 224), *args):
+        self.img_size = img_size
+        super(DiNov2ViTPytorchModel, self).__init__(model, model_name, args)
+        self.linear_classifier = linear
+        self.linear_classifier.to(device())
+
+    def forward_batch(self, images):
+        assert type(images) is torch.Tensor
+        self.model.eval()
+        self.linear_classifier.eval()
+
+        images = undo_default_preprocessing(images)
+        images = [self.preprocess()(ToPILImage()(image)) for image in images]
+        images = torch.Tensor(np.stack(images, axis=0)).to(device())
+
+        x = self.model.forward_features(images)
+        cls_token = x["x_norm_clstoken"]
+        patch_tokens = x["x_norm_patchtokens"]
+        linear_input = torch.cat([
+                cls_token,
+                patch_tokens.mean(dim=1),
+        ], dim=1)
+        logits = self.linear_classifier(linear_input)
+        return self.softmax(self.to_numpy(logits))
+
+    def preprocess(self):
+        # return Compose([CenterCrop(224),
+        #                 ToTensor(),
+        #                 Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        # ])
+        return Compose([ToTensor(),
+                        Resize(224),
+                        Normalize((0.485, 0.456, 0.406),
+                                  (0.229, 0.224, 0.225))])
+
+class DiNoResNetPytorchModel(PytorchModel):
+
+    def __init__(self, model, model_name, linear, img_size=(224, 224), *args):
+        self.img_size = img_size
+        super(DiNoResNetPytorchModel, self).__init__(model, model_name, args)
+        self.linear_classifier = linear
+        self.linear_classifier.to(device())
+
+    def forward_batch(self, images):
+        assert type(images) is torch.Tensor
+        self.model.eval()
+        self.linear_classifier.eval()
+
+        images = undo_default_preprocessing(images)
+        images = [self.preprocess()(ToPILImage()(image)) for image in images]
+        images = torch.Tensor(np.stack(images, axis=0)).to(device())
+
+        output = self.model(images)
+        logits = self.linear_classifier(output)
+        return self.softmax(self.to_numpy(logits))
+
+    def preprocess(self):
+        return Compose([
+            Resize(224),
+            ToTensor(),
+            Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ])
+    
+class MoCoResNetPytorchModel(PytorchModel):
+
+    def __init__(self, model, model_name, img_size=(224, 224), *args):
+        self.img_size = img_size
+        super(MoCoResNetPytorchModel, self).__init__(model, model_name, args)
+
+    def forward_batch(self, images):
+        assert type(images) is torch.Tensor
+        self.model.eval()
+
+        images = undo_default_preprocessing(images)
+        images = [self.preprocess()(ToPILImage()(image)) for image in images]
+        images = torch.Tensor(np.stack(images, axis=0)).to(device())
+
+        logits = self.model(images)
+        return self.softmax(self.to_numpy(logits))
+
+    def preprocess(self):
+        return Compose([
+            Resize(256),
+            CenterCrop(224),
+            ToTensor(),
+            Normalize(mean=[0.485, 0.456, 0.406],
+                      std=[0.229, 0.224, 0.225]),
+        ])
+
+class MoCoViTPytorchModel(PytorchModel):
+    def __init__(self, model, model_name, img_size=(224, 224), *args):
+        self.img_size = img_size
+        super(MoCoViTPytorchModel, self).__init__(model, model_name, args)
+
+    def forward_batch(self, images):
+        assert type(images) is torch.Tensor
+        self.model.eval()
+
+        images = undo_default_preprocessing(images)
+        images = [self.preprocess()(ToPILImage()(image)) for image in images]
+        images = torch.Tensor(np.stack(images, axis=0)).to(device())
+
+        logits = self.model(images)
+        return self.softmax(self.to_numpy(logits))
+
+    def preprocess(self):
+        return Compose([
+                Resize(256),
+                CenterCrop(224),
+                ToTensor(),
+                Normalize(mean=[0.485, 0.456, 0.406],
+                          std=[0.229, 0.224, 0.225]),
+            ])
+
 
 class ClipPytorchModel(PytorchModel):
 

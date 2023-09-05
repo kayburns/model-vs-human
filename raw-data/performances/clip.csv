@@ -1,0 +1,4 @@
+subj,dataset_name,metric_name,performance
+clip,imagenet_validation,accuracy (top-1),0.68344
+clip,imagenet_validation,accuracy (top-5),0.9167
+clip,cue-conflict,accuracy (top-1),0.40078125

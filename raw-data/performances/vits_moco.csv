@@ -1,0 +1,4 @@
+subj,dataset_name,metric_name,performance
+vits_moco,cue-conflict,accuracy (top-1),0.25
+vits_moco,imagenet_validation,accuracy (top-1),0.73174
+vits_moco,imagenet_validation,accuracy (top-5),0.91084
